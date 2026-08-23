@@ -40,7 +40,7 @@
     - id: dsh-plugin-background-tasks
       name: dsh-plugin-background-tasks
       config:
-        waitMsBeforeAsync: 5000
+        waitMsBeforeAsync: 10000   # 统一标准：10 秒
 ```
 
 ---
