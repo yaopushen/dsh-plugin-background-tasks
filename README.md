@@ -69,7 +69,7 @@
 ### 方式一：从 GitHub 安装（发布后的标准姿势）
 
 ```powershell
-dsh plugin --profile web add github:<owner>/dsh-plugin-background-tasks
+dsh plugin --profile web add github:yaopushen/dsh-plugin-background-tasks
 ```
 
 编译产物 `lib/` 随库提交，GitHub 直装免构建。
