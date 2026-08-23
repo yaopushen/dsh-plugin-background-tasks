@@ -27,9 +27,17 @@ async function test(name, fn) {
 
 // --- resolveWorkdir --------------------------------------------------------
 
+// Fixtures must be absolute ON THE RUNNING PLATFORM: drive-letter paths are
+// not absolute on POSIX runners, so each platform gets its own spellings.
+const winPaths = process.platform === 'win32'
+const sessionCwd = winPaths ? 'D:\\session\\cwd' : '/tmp/session/cwd'
+const policyRoot = winPaths ? 'D:\\policy\\root' : '/tmp/policy/root'
+const relSub = winPaths ? 'sub\\dir' : 'sub/dir'
+const elsewhere = winPaths ? 'C:\\elsewhere' : '/var/elsewhere'
+
 await test('policy workspace root wins over session header cwd', () => {
-  const workdir = resolveWorkdir(undefined, 'D:\\session\\cwd', 'D:\\policy\\root')
-  assert.equal(workdir, 'D:\\policy\\root')
+  const workdir = resolveWorkdir(undefined, sessionCwd, policyRoot)
+  assert.equal(workdir, policyRoot)
 })
 
 await test('header cwd applies when no policy root exists', () => {
@@ -41,13 +49,14 @@ await test('header cwd applies when no policy root exists', () => {
 })
 
 await test('relative model cwd resolves against the session identity', () => {
-  const workdir = resolveWorkdir('sub\\dir', 'D:\\session\\cwd', 'D:\\policy\\root')
-  assert.ok(workdir?.endsWith(join('D:\\policy\\root', 'sub\\dir').slice(2)) || workdir === join('D:\\policy\\root', 'sub\\dir'), `got ${workdir}`)
+  const expected = join(policyRoot, relSub)
+  const workdir = resolveWorkdir(relSub, sessionCwd, policyRoot)
+  assert.ok(workdir?.endsWith(expected.slice(winPaths ? 2 : 0)) || workdir === expected, `got ${workdir}`)
 })
 
 await test('absolute model cwd wins unchanged', () => {
-  const workdir = resolveWorkdir('C:\\elsewhere', 'D:\\session\\cwd', 'D:\\policy\\root')
-  assert.equal(workdir, 'C:\\elsewhere')
+  const workdir = resolveWorkdir(elsewhere, sessionCwd, policyRoot)
+  assert.equal(workdir, elsewhere)
 })
 
 await test('no identity at all leaves executor defaulting in charge', () => {
