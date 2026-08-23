@@ -1,7 +1,7 @@
 # 工程化接管笔记：让 run_command 成为无感默认
 
 > 状态：2026-08-23 · 基于 commit `e086d22`（描述路由）与 `943f638`（CLIXML 静默）· 本文取代零散讨论，供后续会话确认细节。
-> **追记（2026-08-23，v0.2.0 seam-aligned 重写后）**：§4-S0 派生预设方案仍是现行单入口机制；但正文中涉及自管 manager / wakeup / `manage_background_task` 的表述均已被取代——`run_command` 现经 `ctx.shell` 执行、后台句柄入 `ctx.jobs`、完成通知由 `tool-jobs` 消费面投递。现状以 `README.md` 与 `docs/sandbox-integration.md` §6 为准，本文降级为历史记录。
+> **追记（2026-08-23，seam-aligned 重写后）**：§4-S0 派生预设方案仍是现行单入口机制；但正文中涉及自管 manager / wakeup / `manage_background_task` 的表述均已被取代——`run_command` 现经 `ctx.shell` 执行、后台句柄入 `ctx.jobs`、完成通知由 `tool-jobs` 消费面投递。现状以仓库根 `README.md` 与同目录 `sandbox-integration.md` §6 为准，本文降级为历史记录。
 
 ## 1. 目标与非目标
 

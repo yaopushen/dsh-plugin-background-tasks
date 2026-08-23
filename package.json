@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-background-tasks",
-  "version": "0.2.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Seam-aligned background command execution for DeepSeek Harness — run_command via ctx.shell under the session sandbox policy, auto-promotion into ctx.jobs",
   "type": "module",

@@ -32,8 +32,6 @@
 | :--- | :--- | :--- | :--- |
 | `waitMsBeforeAsync` | int ≥ 0 | `10000` | 同步等待毫秒数（对齐 Antigravity 10 秒标准）；设为 `0` 则直接后台启动 |
 
-> v0.2.0 起 `taskDir` / `defaultTailLines` / `maxCompletedTasks` / `syncOutputLimitBytes` 随自管 TaskManager 一并退役——日志留存、输出上限与完成通知尾部截断改由 executor 输出预算与 `ctx.jobs` 运行时持有。
-
 ```yaml
 # cordis.patch.yml 覆盖配置示例
 - insert:
@@ -62,8 +60,6 @@
 
 - **同步完成**：返回退出码 + 合并输出（executor 负责输出预算与 spill 文件标注）；启动失败以 `killed` 结算并在 stderr 带错误，绝不悬挂。
 - **转入后台**：返回 `[Background Task Started]` 与 `JobId`（`command-N`）；此后用原生 `job_*` 工具管控，完成通知由 jobs 消费面自动投递。
-
-> **`manage_background_task` 已于 v0.2.0 退役**：其 list/status/logs/kill 职责由原生 `job_list` / `job_output` / `job_kill` 承接（预设已内置 `tool-jobs`），模型可见工具面因此少一个 schema 条目。
 
 ---
 
@@ -101,13 +97,12 @@ dsh web
 dsh-plugin-background-tasks/
 ├── package.json               # Bundle 声明、files 导出白名单
 ├── cordis.patch.yml           # Bundle 默认挂载补丁
-├── CHANGELOG.md               # 版本历史
 ├── preset/                    # 随包附带预设（自动释放）
 │   └── background-shell/      # 单入口 Shell 派生预设（agent.cordis.yml / preset.yml）
 ├── scripts/
 │   └── link-deps.ps1          # 树外路径挂载时的依赖 junction 接线（幂等）
 ├── src/
-│   ├── index.ts               # 函数插件入口（inject ['tools','shell']；split-composition fail loud）
+│   ├── index.ts               # 函数插件入口（inject ['tools','shell','systemPrompt']；split-composition fail loud）
 │   ├── config.ts              # fail-loud 配置解析器（默认 10s 等待窗口）
 │   ├── tools.ts               # run_command Consumer（晋升竞争、审批升级、jobs 注册）
 │   ├── shell-exec.ts          # 纯适配层（workdir 解析、outcome 映射、读渲染、竞速器）
@@ -118,7 +113,7 @@ dsh-plugin-background-tasks/
 ├── tests/
 │   ├── test-shell-exec.mjs    # 纯适配层回归（27 用例，无宿主依赖）
 │   └── test-tool-execute.mjs  # 编排层集成回归（fake ctx，16 用例）
-└── docs/                      # 内部工程文档（索引见 docs/README.md）
+└── dev/                       # 内部研发基线与 changelog（不入发布包，见 dev/README.md）
 ```
 
 ---
@@ -180,8 +175,7 @@ Append-only: each notice enters the session log as an ordinary user-role message
 ## 文档
 
 - **发布面**：本 README 即发布文档，自足可用。
-- **内部工程文档**（设计决策记录、验收报告、历史存档）：[`docs/README.md`](docs/README.md) 索引。
-- **版本历史**：[`CHANGELOG.md`](CHANGELOG.md)。
+- **内部研发基线**（设计决策记录、验收报告、历史存档）与**版本史**：[`dev/`](dev/README.md)，不随 npm 包发布。
 
 ## 开源许可
 

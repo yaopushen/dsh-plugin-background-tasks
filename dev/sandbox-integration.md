@@ -1,6 +1,6 @@
 # 沙箱接入设计（调研结论 + 已定档并实现）
 
-> 状态：调研完成 → 实测确认 → **已实现 Tier B**（v0.2.0，2026-08-23）。§1–§3 保留为历史调研记录，定档证据与实现记录见 §4 与 §6。
+> 状态：调研完成 → 实测确认 → **已实现 Tier B**（内部迭代 0.2.0，2026-08-23；公开版本号已重置，见 `CHANGELOG.md`）。§1–§3 保留为历史调研记录，定档证据与实现记录见 §4 与 §6。
 
 ## 1. 背景与根因
 
@@ -62,7 +62,7 @@ const cwd = resolve(request.cwd ?? process.cwd())
 - `README.md`：安全边界新增"挂载本插件即视为放弃该 profile 的命令审批保护"。
 - `tests/test-manager.mjs`：6 项回归全绿。
 
-## 6. Tier B 实现记录（v0.2.0）
+## 6. Tier B 实现记录（内部 0.2.0）
 
 **架构**：单工具 `run_command` 成为 shell/jobs/sandbox/approval 四缝的 Consumer，完全对齐 `tool-bash` / `tool-pwsh` 范式：
 
