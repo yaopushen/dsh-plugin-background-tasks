@@ -6,9 +6,9 @@
 
 单工具后台命令执行插件：`run_command` 是 DeepSeek Harness shell / jobs / sandboxPolicy / approval 四个能力缝的模型面 Consumer——命令经 `ctx.shell` 执行器在会话沙箱策略与审批管线约束下运行；超过等待窗口（默认 10 秒）自动晋升进通用 `ctx.jobs` 运行时，由原生 `job_list` / `job_output` / `job_kill` 管控、完成通知由 jobs 消费面投递。
 
-- 超时晋升：窗口内同步返回；超时不杀不弃整体晋升（kind `command`，owner 会话隔离）；`wait_ms: 0` 直接后台；调用中止时立即就地晋升。
+- 超时晋升：等待窗口为部署级配置（默认 10 秒，模型侧无时机参数——时机决策权属于操作者，杜绝长阻塞误用）；窗口内同步返回；超窗不杀不弃整体晋升（kind `command`，owner 会话隔离）；调用中止时立即就地晋升。
 - 沙箱与升级：每调用解析会话策略下发 confining executor；越界写以 `[sandbox: file access denied under <mode> mode]` 呈现并附带同轮升级提示；`sandbox_permissions` + `justification` 走共享审批序列。
-- 方言引导：常驻提示段覆盖脚本片段语义、SSH 外层单引号规则、字节级文件对比姿势（Compare-Object 集合语义陷阱与 CRLF 盲区）。
+- 方言引导：工具描述内嵌 SSH 外层单引号规则与 Start-Sleep 反模式禁令；常驻提示段覆盖脚本片段语义、字节级文件对比姿势（Compare-Object 集合语义陷阱与 CRLF 盲区）。
 - 随包预设「后台任务模式」：派生自标准模式，移除内置 pwsh/bash 解禁行，开箱即单入口。
 - 质量：纯适配层 27 用例 + fake 组合集成 16 用例全绿；独立会话验收 8/8 PASS（见 `acceptance-2026-08-23.md`）。
 

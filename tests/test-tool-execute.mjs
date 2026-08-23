@@ -2,7 +2,8 @@
  * Integration regression for the `run_command` orchestration layer: drives the
  * compiled lib/tools.js through a hand-built fake composition (shell, jobs,
  * shellEnv, approval fakes) and asserts the full execute() behavior — path
- * selection, job registration shape, workdir/policy stamping, the escalation
+ * selection driven by the DEPLOYMENT wait window (the model has no timing
+ * parameter), job registration shape, workdir/policy stamping, the escalation
  * flow through the REAL approveEscalation code, and fail-loud branches.
  *
  * Note: defineTool normalizes the per-property parameter dialect into
@@ -134,13 +135,21 @@ function confiningSeam(mode = 'workspace-write', root = 'D:\\DEEPSEEK') {
   }
 }
 
-const CONFIG = { waitMsBeforeAsync: 10_000 }
+const SYNC_WINDOW_CONFIG = { waitMsBeforeAsync: 10_000 }
 
-// --- parameter surface gating ----------------------------------------------
+// --- parameter surface -------------------------------------------------------
+
+await test('model-facing schema has NO timing parameter (window is deployment-owned)', () => {
+  const { ctx, registered } = makeCtx({ shell: makeShell(() => makeProc()) })
+  registerBackgroundTools(ctx, SYNC_WINDOW_CONFIG, confiningSeam())
+  const props = registered.at(-1).parameters.properties
+  assert.equal(props.wait_ms, undefined)
+  assert.equal(props.run_in_background, undefined)
+})
 
 await test('confining composition advertises the escalation pair', () => {
   const { ctx, registered } = makeCtx({ shell: makeShell(() => makeProc()) })
-  registerBackgroundTools(ctx, CONFIG, confiningSeam())
+  registerBackgroundTools(ctx, SYNC_WINDOW_CONFIG, confiningSeam())
   const props = registered.at(-1).parameters.properties
   assert.ok(props.sandbox_permissions !== undefined)
   assert.ok(props.justification !== undefined)
@@ -148,7 +157,7 @@ await test('confining composition advertises the escalation pair', () => {
 
 await test('non-confining composition hides the escalation pair', () => {
   const { ctx, registered } = makeCtx({ shell: makeShell(() => makeProc()) })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
+  registerBackgroundTools(ctx, SYNC_WINDOW_CONFIG, NO_POLICY_SEAM)
   const props = registered.at(-1).parameters.properties
   assert.equal(props.sandbox_permissions, undefined)
   assert.equal(props.justification, undefined)
@@ -163,10 +172,10 @@ await test('fast command returns synchronously without touching ctx.jobs', async
     return proc
   })
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
+  registerBackgroundTools(ctx, SYNC_WINDOW_CONFIG, NO_POLICY_SEAM)
   const tool = registered.at(-1)
   const { exec } = makeExec()
-  const out = await tool.execute({ command: 'echo hello', wait_ms: 1000 }, exec)
+  const out = await tool.execute({ command: 'echo hello' }, exec)
   assert.ok(out.includes('Command finished (exit code 0)'), out)
   assert.ok(out.includes('hello world'))
   assert.equal(ctx.get('jobs').started.length, 0)
@@ -184,26 +193,26 @@ await test('denied sync output carries denial marker and hint when advertised', 
     return proc
   })
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, confiningSeam())
+  registerBackgroundTools(ctx, SYNC_WINDOW_CONFIG, confiningSeam())
   const tool = registered.at(-1)
   const { exec } = makeExec()
-  const out = await tool.execute({ command: 'touch elsewhere', wait_ms: 300 }, exec)
+  const out = await tool.execute({ command: 'touch elsewhere' }, exec)
   assert.ok(out.includes('[sandbox: file access denied under workspace-write mode]'))
   assert.ok(out.includes('[sandbox: escalation available'), out)
 })
 
 // --- promotion paths ---------------------------------------------------------
 
-await test('window expiry promotes into ctx.jobs with owner and kind', async () => {
+await test('wait-window expiry promotes into ctx.jobs with owner and kind', async () => {
   const shell = makeShell(() => makeProc()) // never settles
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
-  const t = registered.at(-1)
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, NO_POLICY_SEAM)
+  const tool = registered.at(-1)
   const { exec } = makeExec()
-  const out = await t.execute({ command: 'long-build', description: 'build it', wait_ms: 25 }, exec)
-  assert.ok(out.includes('[Background Task Started]'), out)
+  const out = await tool.execute({ command: 'long-build', description: 'build it' }, exec)
+  assert.ok(out.includes('[Command moved to background]'), out)
+  assert.ok(out.includes('JobId: command-1'), out)
   const job = ctx.get('jobs').started[0]
-  assert.equal(job.id, 'command-1')
   assert.equal(job.spec.kind, 'command')
   assert.equal(job.spec.owner, exec.agent)
   assert.equal(job.spec.label, 'build it')
@@ -213,40 +222,28 @@ await test('window expiry promotes into ctx.jobs with owner and kind', async () 
   assert.equal(shell.started[0].status, 'killed')
 })
 
-await test('wait_ms=0 promotes immediately', async () => {
-  const shell = makeShell(() => makeProc())
-  const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
-  const tool = registered.at(-1)
-  const { exec } = makeExec()
-  const out = await tool.execute({ command: 'tail -f log', wait_ms: 0 }, exec)
-  assert.ok(out.includes('[Background Task Started]'), out)
-  assert.ok(out.includes('immediately'), out)
-  assert.equal(ctx.get('jobs').started.length, 1)
-})
-
 await test('caller abort inside the window promotes early instead of waiting out', async () => {
   const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 60_000 }, NO_POLICY_SEAM)
   const tool = registered.at(-1)
   const { exec, controller } = makeExec()
   const startedAt = Date.now()
   setTimeout(() => controller.abort(), 15)
-  const out = await tool.execute({ command: 'endless', wait_ms: 60_000 }, exec)
+  const out = await tool.execute({ command: 'endless' }, exec)
   assert.ok(Date.now() - startedAt < 30_000, 'abort must cut the window short')
-  assert.ok(out.includes('[Background Task Started]'), out)
+  assert.ok(out.includes('[Command moved to background]'), out)
 })
 
 // --- request stamping --------------------------------------------------------
 
 await test('policy workspace root wins as default workdir and rides the spec', async () => {
-  const shell = makeShell(() => makeProc({ output: 'ok', exitCode: 0 }))
+  const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, confiningSeam('workspace-write', 'D:\\DEEPSEEK'))
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, confiningSeam('workspace-write', 'D:\\DEEPSEEK'))
   const tool = registered.at(-1)
   const { exec } = makeExec()
-  await tool.execute({ command: 'pwd', wait_ms: 200 }, exec)
+  await tool.execute({ command: 'pwd' }, exec)
   const spec = shell.resolvedSpecs.at(-1)
   assert.equal(spec.workdir, 'D:\\DEEPSEEK')
   assert.equal(spec.sandboxPolicy.mode, 'workspace-write')
@@ -254,26 +251,26 @@ await test('policy workspace root wins as default workdir and rides the spec', a
 })
 
 await test('relative cwd resolves against the policy root; absolute wins', async () => {
-  const shell = makeShell(() => makeProc({ output: '', exitCode: 0 }))
+  const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, confiningSeam('workspace-write', tmpdir()))
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, confiningSeam('workspace-write', tmpdir()))
   const tool = registered.at(-1)
   const { exec } = makeExec()
-  await tool.execute({ command: 'x', wait_ms: 150, cwd: 'sub' }, exec)
+  await tool.execute({ command: 'x', cwd: 'sub' }, exec)
   const relative = shell.resolvedSpecs.at(-1).workdir
   assert.ok(isAbsolute(relative))
   assert.ok(relative.startsWith(tmpdir()))
-  await tool.execute({ command: 'x', wait_ms: 150, cwd: process.platform === 'win32' ? 'C:\\elsewhere' : '/var/elsewhere' }, exec)
-  assert.equal(shell.resolvedSpecs.at(-1).workdir, process.platform === 'win32' ? 'C:\\elsewhere' : '/var/elsewhere')
+  await tool.execute({ command: 'x', cwd: 'C:\\elsewhere' }, exec)
+  assert.equal(shell.resolvedSpecs.at(-1).workdir, 'C:\\elsewhere')
 })
 
 await test('header cwd applies when no policy exists', async () => {
-  const shell = makeShell(() => makeProc({ output: '', exitCode: 0 }))
+  const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, NO_POLICY_SEAM)
   const tool = registered.at(-1)
   const { exec } = makeExec()
-  await tool.execute({ command: 'x', wait_ms: 150 }, exec)
+  await tool.execute({ command: 'x' }, exec)
   // canonicalPath resolves symlinks; a missing path passes through unchanged.
   const workdir = shell.resolvedSpecs.at(-1).workdir
   assert.ok(workdir === 'D:\\DEEPSEEK' || isAbsolute(workdir), `got ${workdir}`)
@@ -283,12 +280,12 @@ await test('header cwd applies when no policy exists', async () => {
 await test('managed DSH_* environment is collected per call when composed', async () => {
   const collected = { DSH_SESSION_ID: 'sess-A' }
   const shellEnv = { collect: () => collected }
-  const shell = makeShell(() => makeProc({ output: '', exitCode: 0 }))
+  const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell, shellEnv })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, NO_POLICY_SEAM)
   const tool = registered.at(-1)
   const { exec } = makeExec()
-  await tool.execute({ command: 'x', wait_ms: 150 }, exec)
+  await tool.execute({ command: 'x' }, exec)
   assert.equal(shell.resolvedSpecs.at(-1).dshEnv, collected)
 })
 
@@ -297,13 +294,13 @@ await test('managed DSH_* environment is collected per call when composed', asyn
 await test('approved escalation stamps the widened mode onto this call', async () => {
   const asks = []
   const approval = { request: async (req) => { asks.push(req); return 'allowed-once' } }
-  const shell = makeShell(() => makeProc({ output: '', exitCode: 0 }))
+  const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell, approval })
-  registerBackgroundTools(ctx, CONFIG, confiningSeam('workspace-write', 'D:\\DEEPSEEK'))
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, confiningSeam('workspace-write', 'D:\\DEEPSEEK'))
   const tool = registered.at(-1)
   const { exec } = makeExec()
   await tool.execute(
-    { command: 'x', wait_ms: 200, sandbox_permissions: 'danger-full-access', justification: 'need one write outside workspace' },
+    { command: 'x', sandbox_permissions: 'danger-full-access', justification: 'need one write outside workspace' },
     exec,
   )
   assert.equal(asks.length, 1)
@@ -317,12 +314,12 @@ await test('rejected escalation throws and nothing executes', async () => {
   const approval = { request: async () => 'rejected' }
   const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell, approval })
-  registerBackgroundTools(ctx, CONFIG, confiningSeam('workspace-write', 'D:\\DEEPSEEK'))
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, confiningSeam('workspace-write', 'D:\\DEEPSEEK'))
   const tool = registered.at(-1)
   const { exec } = makeExec()
   await assert.rejects(
     tool.execute(
-      { command: 'x', wait_ms: 200, sandbox_permissions: 'danger-full-access', justification: 'why not' },
+      { command: 'x', sandbox_permissions: 'danger-full-access', justification: 'why not' },
       exec,
     ),
     /rejected escalating/,
@@ -335,12 +332,12 @@ await test('non-widening escalation fails closed before any ask', async () => {
   const approval = { request: async (req) => { asks.push(req); return 'allowed-once' } }
   const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell, approval })
-  registerBackgroundTools(ctx, CONFIG, confiningSeam('danger-full-access', 'D:\\DEEPSEEK'))
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, confiningSeam('danger-full-access', 'D:\\DEEPSEEK'))
   const tool = registered.at(-1)
   const { exec } = makeExec()
   await assert.rejects(
     tool.execute(
-      { command: 'x', wait_ms: 200, sandbox_permissions: 'danger-full-access', justification: 'same mode' },
+      { command: 'x', sandbox_permissions: 'danger-full-access', justification: 'same mode' },
       exec,
     ),
     /not strictly wider/,
@@ -351,13 +348,13 @@ await test('non-widening escalation fails closed before any ask', async () => {
 // --- fail-loud branches ------------------------------------------------------
 
 await test('missing ctx.jobs fails loudly with remediation text', async () => {
-  const shell = makeShell(() => makeProc({ output: '', exitCode: 0 }))
+  const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell, jobs: null })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
+  registerBackgroundTools(ctx, SYNC_WINDOW_CONFIG, NO_POLICY_SEAM)
   const tool = registered.at(-1)
   const { exec } = makeExec()
   await assert.rejects(
-    tool.execute({ command: 'anything', wait_ms: 50 }, exec),
+    tool.execute({ command: 'anything' }, exec),
     /ctx\.jobs is not composed/,
   )
 })
@@ -365,11 +362,11 @@ await test('missing ctx.jobs fails loudly with remediation text', async () => {
 await test('aborted tool call refuses to start anything', async () => {
   const shell = makeShell(() => makeProc())
   const { ctx, registered } = makeCtx({ shell })
-  registerBackgroundTools(ctx, CONFIG, NO_POLICY_SEAM)
+  registerBackgroundTools(ctx, SYNC_WINDOW_CONFIG, NO_POLICY_SEAM)
   const tool = registered.at(-1)
   const { exec, controller } = makeExec()
   controller.abort()
-  await assert.rejects(tool.execute({ command: 'x', wait_ms: 0 }, exec), (err) => err.name === 'AbortError')
+  await assert.rejects(tool.execute({ command: 'x' }, exec), (err) => err.name === 'AbortError')
   assert.equal(shell.started.length, 0)
 })
 

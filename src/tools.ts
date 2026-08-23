@@ -35,7 +35,6 @@ declare module '@deepseek-ai/dsh-jobs' {
 interface RunCommandArgs {
   command: string
   cwd?: string
-  wait_ms?: number
   description?: string
   sandbox_permissions?: string
   justification?: string
@@ -59,27 +58,22 @@ function validateArgs(args: RunCommandArgs): void {
   if (args.command.trim().length === 0) {
     throw new Error('invalid command: expected a non-empty string')
   }
-  if (args.wait_ms !== undefined && (!Number.isFinite(args.wait_ms) || args.wait_ms < 0)) {
-    throw new Error(`invalid wait_ms: expected a non-negative number, got ${JSON.stringify(args.wait_ms)}`)
-  }
   validateEscalationArgs(args.sandbox_permissions, args.justification)
 }
 
-function renderSync(proc: ShellProcess, waitedMs: number, escalationAvailable: boolean): string {
+function renderSync(proc: ShellProcess, escalationAvailable: boolean): string {
   const body = renderProcessRead(proc.readOutput(), proc.sandbox, escalationAvailable).trim() || '(No output)'
   const header = proc.status === 'killed'
-    ? `Command was terminated after ${waitedMs}ms window (status: killed${proc.signal !== null ? `, signal: ${proc.signal}` : ''}):`
+    ? `Command was terminated before completion (status: killed${proc.signal !== null ? `, signal: ${proc.signal}` : ''}):`
     : `Command finished (exit code ${proc.exitCode ?? 'N/A'}):`
   return `${header}\n${codeFence(body)}`
 }
 
 function renderBackground(outcome: Extract<RunCommandOutcome, { mode: 'background' }>): string {
-  const waited = outcome.waitedMs === 0 ? 'immediately' : `after ${outcome.waitedMs}ms without completion`
   return [
-    '[Background Task Started]',
+    '[Command moved to background]',
     `JobId: ${outcome.jobId}`,
-    `Promoted: ${waited}`,
-    'Collect output with job_output, stop with job_kill. A completion notification with the output tail arrives on its own — never poll.',
+    'The result arrives via completion notification; manage with job_output / job_kill.',
   ].join('\n')
 }
 
@@ -117,16 +111,15 @@ export function registerBackgroundTools(
     defineTool({
       name: 'run_command',
       description:
-        'Default runner for ANY shell command that may take longer than a few seconds — builds, installs, downloads, tests, training, batch scripts. ' +
-        `Commands finishing within wait_ms (default ${config.waitMsBeforeAsync}ms) return the exit code and output synchronously; ` +
-        'longer ones are automatically promoted into the harness job runtime — collect with job_output, stop with job_kill, and a completion notification with the output tail arrives on its own — never poll, never block the turn. ' +
+        'Default runner for ANY shell command — builds, installs, downloads, tests, training, batch scripts. ' +
+        `Commands finishing within the configured wait window (${config.waitMsBeforeAsync}ms) return the exit code and output synchronously; ` +
+        'longer ones move to background automatically and their result arrives via a completion notification — never poll, and never wrap commands in Start-Sleep waits: run the real command directly. ' +
         'Execution goes through the DSH shell executor under the session sandbox policy and approval pipeline, exactly like pwsh/bash; ' +
         'a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]`. PowerShell on Windows, Bash on Linux/macOS. ' +
         'SSH: wrap the whole remote argument in SINGLE quotes (kept literal) — bash-style \\" nesting terminates the string early and silently mangles arguments.',
       parameters: {
         command: { type: 'string', required: true, description: 'The exact command line string to execute.' },
         cwd: { type: 'string', description: 'Working directory for the command. Defaults to the session workspace; a relative path is resolved against it.' },
-        wait_ms: { type: 'number', description: `Patience window before this call yields and the command continues in background (default: ${config.waitMsBeforeAsync}; 0 = straight to background). NOT a timeout — the command always runs to completion and past-window results still arrive via notification, so larger values only block your turn longer. Raise above the default only when the very next step needs THIS result inline.` },
         description: { type: 'string', description: 'Optional short summary of what this command does.' },
         ...(seam.escalationModes.length > 0 ? {
           sandbox_permissions: {
@@ -170,7 +163,9 @@ export function registerBackgroundTools(
           ...policy !== undefined ? { sandboxPolicy: policy } : {},
         }
 
-        const waitMs = args.wait_ms ?? config.waitMsBeforeAsync
+        // The window belongs to the deployment, not the model: one config
+        // value governs every call (see Known Limitations in README).
+        const waitMs = config.waitMsBeforeAsync
         const jobs = ctx.get('jobs')
         if (jobs === undefined) {
           throw new Error('background-tasks: ctx.jobs is not composed; every run_command call must remain collectable, so load @deepseek-ai/dsh-jobs-local and @deepseek-ai/dsh-tool-jobs')
@@ -199,19 +194,13 @@ export function registerBackgroundTools(
           }
         }
 
-        if (waitMs === 0) {
-          const proc = shell.start(shell.resolve(request))
-          const jobId = registerJob(proc)
-          return renderBackground({ mode: 'background', jobId, waitedMs: 0 })
-        }
-
         const proc = shell.start(shell.resolve(request))
         const winner = await raceCompletion(proc, waitMs, exec.signal)
         if (winner === 'promote') {
           const jobId = registerJob(proc)
           return renderBackground({ mode: 'background', jobId, waitedMs: waitMs })
         }
-        return renderSync(proc, waitMs, seam.escalationModes.length > 0)
+        return renderSync(proc, seam.escalationModes.length > 0)
       },
     }),
   )

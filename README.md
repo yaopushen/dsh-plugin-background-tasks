@@ -54,13 +54,14 @@
 | :--- | :--- | :--- | :--- | :--- |
 | `command` | `string` | 是 | - | 待执行的完整命令行字符串 |
 | `cwd` | `string` | 否 | 会话工作区 | 命令执行的工作目录；相对路径按会话身份解析 |
-| `wait_ms` | `number` | 否 | `10000` | 动态同步等待毫秒数；传入 `0` 则直接后台启动 |
 | `description` | `string` | 否 | - | 任务简短说明（同时作为 job 列表标签） |
 | `sandbox_permissions` | `string` | 否 | - | 仅限对刚发生的沙箱拒绝做一次性同轮加宽重试；需配 `justification` 并经用户审批（仅 confining 组合广告此参数） |
 | `justification` | `string` | 否 | - | 与 `sandbox_permissions` 成对出现的给用户的一句话理由 |
 
+> 同步等待窗口是**部署级配置**（`waitMsBeforeAsync`，默认 10 秒），模型侧没有时机参数——这是刻意设计：时机决策权属于操作者。窗口内完成则内联返回；超窗或调用中止自动转入后台，结果经完成通知送达。
+
 - **同步完成**：返回退出码 + 合并输出（executor 负责输出预算与 spill 文件标注）；启动失败以 `killed` 结算并在 stderr 带错误，绝不悬挂。
-- **转入后台**：返回 `[Background Task Started]` 与 `JobId`（`command-N`）；此后用原生 `job_*` 工具管控，完成通知由 jobs 消费面自动投递。
+- **转入后台**：返回 `[Command moved to background]` 与 `JobId`（`command-N`）；此后用原生 `job_*` 工具管控，完成通知由 jobs 消费面自动投递。
 
 ---
 
@@ -179,9 +180,10 @@ Append-only: each notice enters the session log as an ordinary user-role message
 
 - **Promotion pre-starts before registry preflight** — racing a live process inherently starts it before `jobs.start` runs its preflight; a rejected registration kills the partial start, but the process does briefly exist outside the registry in that failure window.
 - **Requires a composed jobs runtime** — without `@deepseek-ai/dsh-jobs-local` (+ `tool-jobs`) every call fails loudly; there is no sync-only degradation, because a command that outlives its turn must remain collectable.
-- **No executor timeout inside the wait window** — promotion uses `shell.start()`, whose spec ignores `timeoutMs`; `wait_ms` alone governs when the turn is released, so a model passing an enormous `wait_ms` blocks its own turn by request.
+- **The wait window is deployment-fixed** — `waitMsBeforeAsync` is operator-owned; models cannot extend or skip it per call (by design — timing decisions caused models to block their own turns for minutes). Long-running daemons pay the full window once per start; there is no executor timeout inside the window because promotion, not killing, is the release path.
 - **Confinement completeness inherits the mounted backend** — enforcement quality (e.g. Windows ACL restricted-token runner) is the executor's contract, not this plugin's.
 - **Preset installer skips existing directories** — packaged-preset edits do not propagate to already-installed copies without manual sync.
+- **Exit criterion** — this plugin exists because native shell tools lack auto-promotion semantics. If upstream absorbs them, the shell face of this plugin should retire.
 
 ## 文档
 
