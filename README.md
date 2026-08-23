@@ -1,25 +1,26 @@
 # dsh-plugin-background-tasks
 
-> DeepSeek Harness (DSH) 后台命令执行插件（seam-aligned 版）：`run_command` 经宿主 `ctx.shell` 执行器在会话沙箱策略与审批管线约束下运行；超过等待窗口的命令自动晋升进通用 `ctx.jobs` 运行时，由原生 `job_output` / `job_kill` 管控、由 jobs 消费面自动投递完成通知。
+> 让长命令不再卡死对话：短命令即时返回结果，长命令自动转入后台，跑完主动汇报——复刻 Google Antigravity 的 `run_command` 工作流体验。
 
 ---
 
 ## 简介
 
-本插件是 DeepSeek Harness「shell / jobs / sandbox / approval」四个能力缝（capability seam）的模型面 Consumer，参照 `@deepseek-ai/dsh-tool-bash` / `dsh-tool-pwsh` 的官方范式实现，并保留一项它们没有的差异化能力：
+对话式开发里最影响手感的事，莫过于一条构建、训练或下载命令把整个会话挂住。本插件把 Antigravity 的「超时竞争」工作流带到 DeepSeek Harness：
 
-1. **超时竞争与自动晋升（Timeout Promotion）** — 命令在 `wait_ms`（默认 **10000ms / 10 秒**，可配置）内完成则同步返回退出码与输出；超时未完成的命令**不杀不弃**，原进程整体晋升为 `ctx.jobs` 注册的后台任务（kind `command`），立即释放当前轮次。工具调用被中止时等待窗口立即结束并就地晋升，进程即刻获得归属。设 `wait_ms: 0` 则直接后台启动。
-2. **完全对齐 harness seams** — 前台执行走晋升进程的 `ctx.shell.start()` 句柄，工作目录按「沙箱 workspaceRoot 优先 → 会话 header.cwd 兜底」解析（与原生 shell 工具逐字一致）；后台身份、owner 会话隔离、输出收集、取消与完成通知全部由 `ctx.jobs` 运行时持有，插件**零自管注册表、零日志文件管理**。
-3. **会话沙箱与审批升级** — 每次调用经 `ctx.sandboxPolicy.resolve({ session })` 解析完整策略并随请求下发 confining executor；被拒后的同轮加宽走共享的 `approveEscalation` 序列（`sandbox_permissions` + `justification` → `ctx.approval`），拒绝语义与 pwsh/bash 逐字一致。
-4. **跨平台执行器复用** — 平台分发交给挂载的 shell executor（win32 为 PowerShell 家族 provider，POSIX 为 bash provider），进程组级终止由 `ctx.subprocess` seam 的 disposal 与 `ShellProcess.kill()` 承担；插件不再自带 `-EncodedCommand` 直编或 `taskkill /T /F` 手搓实现。
-5. **自带预设自动安装（Auto Preset Packaging）** — 插件随包携带 `preset/background-shell/` 预设，加载时自动写入 `$DSH_HOME/.agent-presets/`，在新会话中选择「后台任务模式」即可享受单入口 Shell 体验。
+1. **长命令异步化** — 命令先同步等待 10 秒：跑完直接给结果；没跑完就整体转入后台，对话立即释放，你继续干别的，互不打断。
+2. **完成主动汇报** — 后台命令结束时自动推送结果摘要（退出码 + 输出尾部），零轮询、不用催。
+3. **状态随时可查可控** — 每个后台任务有 ID；列表、读输出、终止都是现成工具，与宿主原生后台任务共用同一套界面。
+4. **安全不越界** — 命令走宿主统一执行通道：会话沙箱策略与审批管线照常生效；万一被策略拦下，会明确告诉你如何合规重试。
+5. **开箱即用** — 自带「后台任务模式」预设：新建会话选它即得单入口体验；Windows / Linux / macOS 全平台。
+
+> 参数命名对齐 Antigravity 官方的 `run_command` 合约（`CommandLine` / `Cwd` / `WaitMsBeforeAsync`），模型侧习惯零成本迁移。
 
 ### 安全边界（必读）
 
 - 命令经由 DSH 的 `ctx.shell` 执行器运行，**受会话沙箱模式约束**：confining executor 在位的部署中，越界文件操作以 `[sandbox: file access denied under <mode> mode]` 标记呈现（升级面在位的组合还会附带与原生 shell 工具逐字一致的同轮升级提示）；`danger-full-access` 会话不设限是该模式自身的语义，不是插件旁路。注意该词汇表约束的是**写效果**——读操作在任何模式下都不受限。
 - 加宽请求走 `ctx.approval` 审批管线：审批禁用的会话中升级会被**自动拒绝**（fail-closed），不存在绕过路径。
-- 后台任务在 `ctx.jobs` 中按 owner 会话隔离：跨会话不可见、不可收集、不可杀；owner 销毁时任务被取消并等待结算。
-- 完成通知中的命令输出尾部是**不可信数据**（来自外部进程输出），模型将其作为结果事实审阅，不作为指令执行。
+- 后台任务按 owner 会话隔离：跨会话不可见、不可收集、不可杀；owner 销毁时任务被取消并等待结算。
 - `ctx.jobs` 未组合时工具直接报错（fail loud）：每个 `run_command` 调用都必须保持可收集、可停止。
 
 ---
