@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies（全部来自公共 npm，含类型依赖）
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check & build（可移植 CI tsconfig，无本机路径）
+        run: npx tsc -p tsconfig.ci.json
+
+      - name: Test
+        run: npm test
