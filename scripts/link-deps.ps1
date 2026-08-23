@@ -9,10 +9,13 @@ $harness = Join-Path (Split-Path -Parent $pluginRoot) 'deepseek-harness'
 if (-not (Test-Path $harness)) { $harness = 'D:\DEEPSEEK\deepseek-harness' }
 
 $targets = @{
-  '@deepseek-ai/cordis'    = Join-Path $harness 'vendor\cordis'
-  '@deepseek-ai/dsh-tools' = Join-Path $harness 'packages\core\tools'
-  '@deepseek-ai/dsh-agent' = Join-Path $harness 'packages\core\agent'
-  '@deepseek-ai/dsh-llm'   = Join-Path $harness 'packages\llm\llm'
+  '@deepseek-ai/cordis'         = Join-Path $harness 'vendor\cordis'
+  '@deepseek-ai/dsh-tools'      = Join-Path $harness 'packages\core\tools'
+  '@deepseek-ai/dsh-agent'      = Join-Path $harness 'packages\core\agent'
+  '@deepseek-ai/dsh-llm'        = Join-Path $harness 'packages\llm\llm'
+  '@deepseek-ai/dsh-shell'      = Join-Path $harness 'packages\shell\shell'
+  '@deepseek-ai/dsh-jobs'       = Join-Path $harness 'packages\jobs\jobs'
+  '@deepseek-ai/dsh-sandbox'    = Join-Path $harness 'packages\sandbox\sandbox'
 }
 
 foreach ($name in $targets.Keys) {

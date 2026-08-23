@@ -1,56 +1,39 @@
-import type { ChildProcess } from 'node:child_process';
-import type { Agent } from '@deepseek-ai/dsh-agent';
-/** The harness-branded session id (Agent.id shares the session identity); derived to avoid depending on @deepseek-ai/dsh-session directly. */
-export type DshSessionId = Agent['id'];
-export type TaskStatus = 'running' | 'completed' | 'failed' | 'killed';
-export interface TaskRecord {
-    taskId: string;
-    command: string;
-    cwd: string;
-    startTime: number;
-    endTime?: number;
-    status: TaskStatus;
-    exitCode?: number | null;
-    signal?: string | null;
-    logPath: string;
-    sessionId: DshSessionId;
-    agentId: DshSessionId;
-    child?: ChildProcess;
-    description?: string;
-}
-export interface RunCommandResult {
-    mode: 'sync' | 'background';
-    taskId?: string;
-    status: TaskStatus;
-    command: string;
-    exitCode?: number | null;
-    stdout?: string;
-    stderr?: string;
-    output?: string;
-    logPath?: string;
-    message?: string;
-}
-export interface ManageTaskResult {
-    action: string;
-    tasks?: Array<Omit<TaskRecord, 'child'>>;
-    task?: Omit<TaskRecord, 'child'>;
-    logs?: string;
-    success: boolean;
-    message?: string;
-}
+/**
+ * Public types of the background-tasks plugin. Registry state, job identity,
+ * and completion notices live in the harness `ctx.jobs` runtime, so this
+ * module only carries the plugin config and the tool's own outcome union.
+ * @module dsh-plugin-background-tasks/types
+ */
 /** Plugin config as accepted from cordis.yml (all fields optional). */
 export interface BackgroundTasksConfig {
-    /** Milliseconds to wait synchronously before promoting a command to background (default: 10000ms); 0 launches straight into background. */
+    /** Milliseconds to wait synchronously before promoting a command to a background job (default: 10000ms); 0 starts in background directly. */
     waitMsBeforeAsync?: number;
-    /** Directory for per-task log files. Default: ~/.dsh/tasks. */
-    taskDir?: string;
-    /** Default line count for the logs action and for completion wakeup tails. */
-    defaultTailLines?: number;
-    /** Retention cap: finished tasks beyond this are pruned oldest-first together with their log files. */
-    maxCompletedTasks?: number;
-    /** Cap on stdout+stderr accumulated during one synchronous wait window, in bytes. */
-    syncOutputLimitBytes?: number;
 }
-/** Fully resolved plugin config; every field is guaranteed by resolveBackgroundTasksConfig. */
-export type ResolvedBackgroundTasksConfig = Required<BackgroundTasksConfig>;
+/** Fully resolved plugin config; every field is validated by resolveBackgroundTasksConfig at load time. */
+export interface ResolvedBackgroundTasksConfig {
+    waitMsBeforeAsync: number;
+}
+/**
+ * Synchronous outcome: the process settled inside the wait window. Output is
+ * the executor-captured combined stream; spill metadata appears only when the
+ * executor truncated a stream it could not retain in memory.
+ */
+export interface SyncCommandOutcome {
+    mode: 'sync';
+    exitCode: number | null;
+    signal: string | null;
+    killed: boolean;
+    output: string;
+    lossy: boolean;
+    stdoutSpillPath?: string;
+    stderrSpillPath?: string;
+}
+/** Background acknowledgement: the command was handed to the `ctx.jobs` registry. */
+export interface BackgroundCommandOutcome {
+    mode: 'background';
+    /** The `<kind>-N` id issued by ctx.jobs; collect with `job_output`, stop with `job_kill`. */
+    jobId: string;
+    waitedMs: number;
+}
+export type RunCommandOutcome = SyncCommandOutcome | BackgroundCommandOutcome;
 //# sourceMappingURL=types.d.ts.map

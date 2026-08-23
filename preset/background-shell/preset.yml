@@ -1,3 +1,3 @@
 name: 后台任务模式
-description: 单入口 Shell：全部命令统一走 run_background_command（超时自动托管后台，完成自动唤醒），manage_background_task 查询/终止；内置 pwsh/bash 保持禁用。基于标准模式派生，其余能力与标准模式一致。
+description: 单入口 Shell：全部命令统一走 run_command（经 ctx.shell 沙箱审批执行，超时自动晋升 ctx.jobs 后台任务，完成自动通知），原生 job_list/job_output/job_kill 查询/终止；内置 pwsh/bash 保持禁用。基于标准模式派生，其余能力与标准模式一致。
 order: 5

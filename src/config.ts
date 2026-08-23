@@ -1,39 +1,21 @@
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+/**
+ * Fail-loud configuration resolver. Validation stays hand-rolled (no runtime
+ * schema dependency) so a tree-external link/path mount keeps zero external
+ * runtime requirements; invalid types throw here at load time.
+ * @module dsh-plugin-background-tasks/config
+ */
+
 import type { BackgroundTasksConfig, ResolvedBackgroundTasksConfig } from './types.js'
 
-/** Audited defaults; every field is overridable through cordis.yml entry config. */
+/** Defaults applied when the cordis entry omits the field. */
 export const BACKGROUND_TASKS_DEFAULTS: ResolvedBackgroundTasksConfig = {
-  waitMsBeforeAsync: 10000,
-  taskDir: join(homedir(), '.dsh', 'tasks'),
-  defaultTailLines: 50,
-  maxCompletedTasks: 100,
-  syncOutputLimitBytes: 256 * 1024,
+  waitMsBeforeAsync: 10_000,
 }
 
-function requireInt(
-  raw: unknown,
-  field: string,
-  fallback: number,
-  { min }: { min: number },
-): number {
-  if (raw === undefined) return fallback
-  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < min) {
-    throw new TypeError(
-      `background-tasks: config.${field} must be an integer >= ${min}, got ${JSON.stringify(raw)}`,
-    )
-  }
-  return raw
-}
-
-function requireString(raw: unknown, field: string, fallback: string): string {
-  if (raw === undefined) return fallback
-  if (typeof raw !== 'string' || raw.trim() === '') {
-    throw new TypeError(
-      `background-tasks: config.${field} must be a non-empty string, got ${JSON.stringify(raw)}`,
-    )
-  }
-  return raw
+function failField(field: string, value: unknown, expected: string): never {
+  throw new TypeError(
+    `dsh-plugin-background-tasks config: ${field} must be ${expected}, got ${JSON.stringify(value)}`,
+  )
 }
 
 /**
@@ -42,23 +24,25 @@ function requireString(raw: unknown, field: string, fallback: string): string {
  * on every field being present and well-typed afterwards.
  *
  * Hand-rolled instead of schemastery on purpose: the plugin is mounted by
- * absolute path outside any node_modules tree and keeps zero runtime
- * dependencies; type-only imports of dsh packages vanish at compile time, but
- * a schemastery import would have to resolve on the host at runtime.
+ * absolute path outside any node_modules tree and keeps its runtime surface
+ * limited to the harness seams it consumes; a schemastery import would add a
+ * vendored-package dependency for no validation power this single integer
+ * field needs.
+ * @param raw - the cordis entry `config` object, when present.
+ * @returns the fully resolved config; every field present and well-typed.
  */
 export function resolveBackgroundTasksConfig(
   raw: BackgroundTasksConfig = {},
 ): ResolvedBackgroundTasksConfig {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new TypeError(
-      `background-tasks: config must be an object, got ${JSON.stringify(raw)}`,
-    )
+    failField('(root)', raw, 'an object')
   }
-  return {
-    waitMsBeforeAsync: requireInt(raw.waitMsBeforeAsync, 'waitMsBeforeAsync', BACKGROUND_TASKS_DEFAULTS.waitMsBeforeAsync, { min: 0 }),
-    taskDir: requireString(raw.taskDir, 'taskDir', BACKGROUND_TASKS_DEFAULTS.taskDir),
-    defaultTailLines: requireInt(raw.defaultTailLines, 'defaultTailLines', BACKGROUND_TASKS_DEFAULTS.defaultTailLines, { min: 1 }),
-    maxCompletedTasks: requireInt(raw.maxCompletedTasks, 'maxCompletedTasks', BACKGROUND_TASKS_DEFAULTS.maxCompletedTasks, { min: 1 }),
-    syncOutputLimitBytes: requireInt(raw.syncOutputLimitBytes, 'syncOutputLimitBytes', BACKGROUND_TASKS_DEFAULTS.syncOutputLimitBytes, { min: 1 }),
+  // Only a truly absent field takes the default; an explicit null is a
+  // misconfiguration and fails loud below.
+  const requested = raw.waitMsBeforeAsync
+  const waitMsBeforeAsync = requested === undefined ? BACKGROUND_TASKS_DEFAULTS.waitMsBeforeAsync : requested
+  if (typeof waitMsBeforeAsync !== 'number' || !Number.isInteger(waitMsBeforeAsync) || waitMsBeforeAsync < 0) {
+    failField('waitMsBeforeAsync', raw.waitMsBeforeAsync, 'a non-negative integer')
   }
+  return { waitMsBeforeAsync }
 }

@@ -20,8 +20,16 @@
     "paths": {
       "@deepseek-ai/cordis": ["d:/DEEPSEEK/deepseek-harness/vendor/cordis/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-agent": ["d:/DEEPSEEK/deepseek-harness/packages/core/agent/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-jobs": ["d:/DEEPSEEK/deepseek-harness/packages/jobs/jobs/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-llm": ["d:/DEEPSEEK/deepseek-harness/packages/llm/llm/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-sandbox": ["d:/DEEPSEEK/deepseek-harness/packages/sandbox/sandbox/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-sandbox-policy": ["d:/DEEPSEEK/deepseek-harness/packages/sandbox/sandbox-policy/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session": ["d:/DEEPSEEK/deepseek-harness/packages/core/session/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-shell": ["d:/DEEPSEEK/deepseek-harness/packages/shell/shell/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-shell-env": ["d:/DEEPSEEK/deepseek-harness/packages/shell/shell-env/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-subprocess": ["d:/DEEPSEEK/deepseek-harness/packages/subprocess/subprocess/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-tools": ["d:/DEEPSEEK/deepseek-harness/packages/core/tools/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-user-approval": ["d:/DEEPSEEK/deepseek-harness/packages/interaction/user-approval/lib/types/index.d.ts"],
       "@deepseek-ai/schemastery": ["d:/DEEPSEEK/deepseek-harness/vendor/schemastery/lib/types/index.d.ts"]
     }
   },

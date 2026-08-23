@@ -1,48 +1,75 @@
-import type { Context } from '@deepseek-ai/cordis'
-import { resolveBackgroundTasksConfig } from './config.js'
-import { TaskManager } from './manager.js'
-import { registerBackgroundTools } from './tools.js'
-import { deliverTaskWakeup } from './wakeup.js'
-import { installPackagedPreset } from './preset-installer.js'
-import type { BackgroundTasksConfig, ManageTaskResult, RunCommandResult, TaskRecord, TaskStatus } from './types.js'
+/**
+ * dsh-plugin-background-tasks — seam-aligned background command execution for
+ * DeepSeek Harness. One tool (`run_command`) runs every command through the
+ * harness `ctx.shell` executor under the session sandbox policy; commands
+ * exceeding the wait window are promoted into the generic `ctx.jobs` runtime,
+ * which owns identity, owner-fenced access, output collection, cancellation,
+ * and completion notices. The plugin owns no registry of its own.
+ *
+ * Function plugin protocol: named exports only, no default export (a default
+ * export makes the Loader discard the namespace and with it `inject`).
+ * @module dsh-plugin-background-tasks
+ */
 
-export { TaskManager } from './manager.js'
+import type { Context } from '@deepseek-ai/cordis'
+import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
+import { ESCALATION_TARGETS } from '@deepseek-ai/dsh-sandbox'
+import { BACKGROUND_TASKS_DEFAULTS, resolveBackgroundTasksConfig } from './config.js'
+import { registerBackgroundTools } from './tools.js'
+import type { SandboxSeam } from './tools.js'
+import { installPackagedPreset } from './preset-installer.js'
+import type { BackgroundTasksConfig, RunCommandOutcome } from './types.js'
+
 export { BACKGROUND_TASKS_DEFAULTS, resolveBackgroundTasksConfig } from './config.js'
 export type {
   BackgroundTasksConfig,
   ResolvedBackgroundTasksConfig,
-  RunCommandResult,
-  ManageTaskResult,
-  TaskRecord,
-  TaskStatus,
+  RunCommandOutcome,
+  SyncCommandOutcome,
+  BackgroundCommandOutcome,
 } from './types.js'
 
 export const name = 'dsh-plugin-background-tasks'
-export const inject = ['tools', 'agents']
+
+/** `shell` is the execution seam this plugin exists to drive; without it the composition cannot serve the tool at all. */
+export const inject = ['tools', 'shell']
 
 /**
  * Mount the background-tasks plugin. Invalid config throws here at load time;
  * after this point every config field is resolved and validated.
+ * @param ctx - the composition context.
+ * @param rawConfig - the cordis entry `config` object, when present.
  */
 export function apply(ctx: Context, rawConfig: BackgroundTasksConfig = {}): void {
   const config = resolveBackgroundTasksConfig(rawConfig)
   const log = ctx.logger('background-tasks')
   log.info(
-    'initializing plugin (taskDir=%s, waitMsBeforeAsync=%s, maxCompletedTasks=%s)',
-    config.taskDir,
+    'initializing plugin (seam-aligned: ctx.shell + ctx.jobs; waitMsBeforeAsync=%s)',
     config.waitMsBeforeAsync,
-    config.maxCompletedTasks,
   )
+  if (ctx.get('shellEnv') === undefined) {
+    log.warn(
+      'shellEnv service is not composed; commands will run without managed DSH_* variables '
+      + '(load @deepseek-ai/dsh-shell-env in this composition)',
+    )
+  }
 
-  const manager = new TaskManager(config)
+  // Mirror the harness shell tools: an executor that confines without the
+  // shared policy resolver is a split composition that must fail at load.
+  const defaultMode = ctx.shell.sandboxMode
+  const sandboxPolicyService: SandboxPolicyService | undefined =
+    defaultMode === undefined ? undefined : ctx.get('sandboxPolicy')
+  if (defaultMode !== undefined && sandboxPolicyService === undefined) {
+    throw new Error('dsh-plugin-background-tasks: the mounted shell executor confines but ctx.sandboxPolicy is missing')
+  }
 
-  // Completion hooks fire only for promoted tasks that were not killed or torn
-  // down (see TaskManager settlement); each delivery wakes the owning agent.
-  const unhookComplete = manager.onTaskComplete((task, tailLogs) => {
-    deliverTaskWakeup(ctx, task, tailLogs)
-  })
+  const seam: SandboxSeam = {
+    escalationModes: defaultMode === undefined ? [] : ESCALATION_TARGETS,
+    resolveSandboxPolicy: (exec) =>
+      sandboxPolicyService?.resolve(exec.agent === undefined ? {} : { session: exec.agent.session }),
+  }
 
-  const unregisterTools = registerBackgroundTools(ctx, manager, config)
+  const unregisterTools = registerBackgroundTools(ctx, config, seam)
 
   // Auto-install packaged agent preset to $DSH_HOME/.agent-presets/background-shell/
   installPackagedPreset(ctx).catch(() => {
@@ -51,10 +78,8 @@ export function apply(ctx: Context, rawConfig: BackgroundTasksConfig = {}): void
 
   ctx.effect(() => {
     return () => {
-      log.info('disposing background task manager')
-      unhookComplete()
+      log.info('disposing background-tasks plugin')
       unregisterTools()
-      manager.dispose()
     }
   }, 'background-tasks teardown')
 

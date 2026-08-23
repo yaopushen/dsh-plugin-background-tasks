@@ -44,13 +44,14 @@
 
 # default in force for sessions joining this preset, so every command flows
 
-# through the globally mounted dsh-plugin-background-tasks tools:
+# through the globally mounted dsh-plugin-background-tasks tool:
 
-# run_command auto-promotes long commands to managed background
+# run_command executes via the harness shell seam and auto-promotes long
 
-# tasks and delivers a completion wakeup; manage_background_task lists,
+# commands into the generic ctx.jobs runtime; the native job_list / job_output /
 
-# inspects and kills them.
+# job_kill controls below list, inspect and kill them, and completion notices
+# are delivered by the jobs consumer itself.
 
 #
 
