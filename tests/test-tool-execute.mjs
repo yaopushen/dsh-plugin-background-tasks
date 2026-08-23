@@ -263,8 +263,8 @@ await test('relative cwd resolves against the policy root; absolute wins', async
   const relative = shell.resolvedSpecs.at(-1).workdir
   assert.ok(isAbsolute(relative))
   assert.ok(relative.startsWith(tmpdir()))
-  await tool.execute({ command: 'x', wait_ms: 150, cwd: 'C:\\elsewhere' }, exec)
-  assert.equal(shell.resolvedSpecs.at(-1).workdir, 'C:\\elsewhere')
+  await tool.execute({ command: 'x', wait_ms: 150, cwd: process.platform === 'win32' ? 'C:\\elsewhere' : '/var/elsewhere' }, exec)
+  assert.equal(shell.resolvedSpecs.at(-1).workdir, process.platform === 'win32' ? 'C:\\elsewhere' : '/var/elsewhere')
 })
 
 await test('header cwd applies when no policy exists', async () => {
