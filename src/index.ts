@@ -3,6 +3,7 @@ import { resolveBackgroundTasksConfig } from './config.js'
 import { TaskManager } from './manager.js'
 import { registerBackgroundTools } from './tools.js'
 import { deliverTaskWakeup } from './wakeup.js'
+import { installPackagedPreset } from './preset-installer.js'
 import type { BackgroundTasksConfig, ManageTaskResult, RunCommandResult, TaskRecord, TaskStatus } from './types.js'
 
 export { TaskManager } from './manager.js'
@@ -42,6 +43,11 @@ export function apply(ctx: Context, rawConfig: BackgroundTasksConfig = {}): void
   })
 
   const unregisterTools = registerBackgroundTools(ctx, manager, config)
+
+  // Auto-install packaged agent preset to $DSH_HOME/.agent-presets/background-shell/
+  installPackagedPreset(ctx).catch(() => {
+    // Best-effort auto-installation; warning already logged inside installer.
+  })
 
   ctx.effect(() => {
     return () => {

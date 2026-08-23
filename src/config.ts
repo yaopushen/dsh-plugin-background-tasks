@@ -4,7 +4,7 @@ import type { BackgroundTasksConfig, ResolvedBackgroundTasksConfig } from './typ
 
 /** Audited defaults; every field is overridable through cordis.yml entry config. */
 export const BACKGROUND_TASKS_DEFAULTS: ResolvedBackgroundTasksConfig = {
-  waitMsBeforeAsync: 5000,
+  waitMsBeforeAsync: 10000,
   taskDir: join(homedir(), '.dsh', 'tasks'),
   defaultTailLines: 50,
   maxCompletedTasks: 100,

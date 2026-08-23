@@ -46,7 +46,7 @@ export interface ManageTaskResult {
 
 /** Plugin config as accepted from cordis.yml (all fields optional). */
 export interface BackgroundTasksConfig {
-  /** Milliseconds to wait synchronously before promoting a command to background; 0 launches straight into background. */
+  /** Milliseconds to wait synchronously before promoting a command to background (default: 10000ms); 0 launches straight into background. */
   waitMsBeforeAsync?: number
   /** Directory for per-task log files. Default: ~/.dsh/tasks. */
   taskDir?: string
