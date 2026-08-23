@@ -139,6 +139,20 @@ Fixed while the plugin is mounted: one tool schema entry per prompt assembly.
 
 Prefix-stable: schema text is identical across turns unless deployment overrides `waitMsBeforeAsync` or the composition's confinement changes which parameters are advertised.
 
+### Dialect-guidance prompt section
+
+#### What the model sees
+
+A standing system-prompt section (`tool:run_command`) teaching the failure classes observed in the wild on bare compositions: verbatim script-fragment semantics (never whole-command quoting), SINGLE-quote wrapping for SSH remote arguments (bash-style `\"` nesting mangles silently), and byte-truth file comparison idioms using built-ins (`fc.exe /b`, `Get-FileHash`, CRLF counting) with Compare-Object's set-semantics caveat.
+
+#### Token effect
+
+Fixed while the plugin is mounted: roughly 100 tokens per prompt assembly.
+
+#### KV Cache effect
+
+Prefix-stable.
+
 ### Background completion notification
 
 #### What the model sees

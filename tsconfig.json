@@ -27,6 +27,7 @@
       "@deepseek-ai/dsh-session": ["d:/DEEPSEEK/deepseek-harness/packages/core/session/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-shell": ["d:/DEEPSEEK/deepseek-harness/packages/shell/shell/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-shell-env": ["d:/DEEPSEEK/deepseek-harness/packages/shell/shell-env/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-system-prompt": ["d:/DEEPSEEK/deepseek-harness/packages/core/system-prompt/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-subprocess": ["d:/DEEPSEEK/deepseek-harness/packages/subprocess/subprocess/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-tools": ["d:/DEEPSEEK/deepseek-harness/packages/core/tools/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-user-approval": ["d:/DEEPSEEK/deepseek-harness/packages/interaction/user-approval/lib/types/index.d.ts"],

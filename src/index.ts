@@ -14,6 +14,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
 import { ESCALATION_TARGETS } from '@deepseek-ai/dsh-sandbox'
+import type {} from '@deepseek-ai/dsh-system-prompt'
 import { BACKGROUND_TASKS_DEFAULTS, resolveBackgroundTasksConfig } from './config.js'
 import { registerBackgroundTools } from './tools.js'
 import type { SandboxSeam } from './tools.js'
@@ -32,7 +33,21 @@ export type {
 export const name = 'dsh-plugin-background-tasks'
 
 /** `shell` is the execution seam this plugin exists to drive; without it the composition cannot serve the tool at all. */
-export const inject = ['tools', 'shell']
+export const inject = ['tools', 'shell', 'systemPrompt']
+
+/**
+ * Cross-call dialect guidance for bare compositions where this tool is the
+ * only door to remote hosts and file comparison (no dedicated ssh/diff tools
+ * mounted). Teaches the failure classes observed in the wild: whole-command
+ * over-wrapping, bash-style `\"` nesting through SSH, and Compare-Object's
+ * set semantics masquerading as a file diff.
+ */
+const DIALECT_GUIDANCE = [
+  'run_command passes your text verbatim to PowerShell as a script fragment: write plain statements, never wrap the whole command in quotes.',
+  'Remote hosts over ssh: wrap the entire remote argument in SINGLE quotes (kept literal); bash-style \\" nesting terminates the string early and silently mangles arguments.',
+  'Compare files by byte truth first: fc.exe /b a b, or (Get-FileHash a).Hash -eq (Get-FileHash b).Hash; audit CRLF by counting occurrences in Get-Content -Raw output. '
+    + 'Compare-Object compares line SETS — order-, duplicate- and EOL-blind — so empty output does not mean equal files.',
+].join(' ')
 
 /**
  * Mount the background-tasks plugin. Invalid config throws here at load time;
@@ -70,6 +85,11 @@ export function apply(ctx: Context, rawConfig: BackgroundTasksConfig = {}): void
   }
 
   const unregisterTools = registerBackgroundTools(ctx, config, seam)
+  const unregisterGuidance = ctx.systemPrompt.section({
+    name: 'tool:run_command',
+    order: 106,
+    text: DIALECT_GUIDANCE,
+  })
 
   // Auto-install packaged agent preset to $DSH_HOME/.agent-presets/background-shell/
   installPackagedPreset(ctx).catch(() => {
@@ -80,6 +100,7 @@ export function apply(ctx: Context, rawConfig: BackgroundTasksConfig = {}): void
     return () => {
       log.info('disposing background-tasks plugin')
       unregisterTools()
+      unregisterGuidance()
     }
   }, 'background-tasks teardown')
 

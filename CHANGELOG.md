@@ -9,6 +9,7 @@
 - 后台晋升进入通用 `ctx.jobs` 运行时（kind `command`，owner 会话隔离），由原生 `job_list` / `job_output` / `job_kill` 管控，完成通知由 jobs 消费面投递。
 - 同轮沙箱升级：`sandbox_permissions` + `justification` 经共享 `approveEscalation` 序列走 `ctx.approval`。
 - 工具调用在等待窗口内被中止时，立即就地晋升（进程即刻获得归属）。
+- 跨调用方言引导（面向无专用 SSH/diff 工具的裸组合）：schema 描述补 SSH 外层单引号规则；注册 `tool:run_command` 提示段——脚本片段语义、SSH 引号姿势、字节级文件对比姿势（Compare-Object 集合语义陷阱与 CRLF 盲区）。
 
 ### 移除（破坏性）
 - **`manage_background_task` 工具**——职责由原生 `job_*` 工具承接。
