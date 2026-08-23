@@ -68,7 +68,7 @@
     "@deepseek-ai/dsh-timeout": "*",
     "@deepseek-ai/dsh-tools": "*",
     "@deepseek-ai/dsh-user-approval": "*",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.2.0",
     "typescript": "^7.0.2"
   }
 }
