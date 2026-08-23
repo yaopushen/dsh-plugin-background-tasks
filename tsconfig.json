@@ -12,10 +12,9 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "types": ["node"],
     "typeRoots": [
-      "d:/DEEPSEEK/deepseek-harness/node_modules/@types"
+      "./node_modules/@types"
     ],
     "paths": {
       "@deepseek-ai/cordis": ["d:/DEEPSEEK/deepseek-harness/vendor/cordis/lib/types/index.d.ts"],
