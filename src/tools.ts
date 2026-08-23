@@ -111,15 +111,13 @@ export function registerBackgroundTools(
     defineTool({
       name: 'run_command',
       description:
-        'A default executor compatible with any shell command — suitable for scenarios such as building, installing, downloading, testing, model training, and batch scripting. ' +
-        'If a command completes within a few seconds, the system synchronously returns the exit code and output; for longer-running commands, execution automatically shifts to the background, with the final result delivered via a completion notification. ' +
-        'There is no need for polling or artificial delays (e.g. Start-Sleep): simply run the actual command, allowing long-running tasks to execute in the background until completion — this is non-blocking. ' +
-        'Commands are executed by the DSH shell executor within a session sandbox and subject to approval workflows, mirroring the behavior of pwsh or bash; if file operations are blocked, the system returns the error `[sandbox: file access denied under <mode> mode]`. ' +
-        'PowerShell is used on Windows, Bash on Linux/macOS. ' +
-        'For SSH commands, enclose the entire remote command argument in single quotes (\') to prevent escaping or variable-expansion issues. ' +
-        'For Python commands: on Linux/macOS use a Bash heredoc —\n' +
-        "python3 - << 'EOF'\n# arbitrary multi-line code; no need to worry about quote conflicts\nEOF\n" +
-        "on Windows pipe a PowerShell here-string into the interpreter:\n@'\n# arbitrary multi-line code\n'@ | python -",
+        'Default runner for any shell command — builds, installs, downloads, tests, training, batch scripts. ' +
+        'Commands finishing within the wait window return output synchronously; longer ones continue in the background and deliver results via a completion notification — never poll, never pad commands with Start-Sleep: run the real command directly. ' +
+        'Runs inside the session sandbox and approval pipeline like pwsh/bash; blocked file operations return `[sandbox: file access denied under <mode> mode]`. PowerShell on Windows, Bash on Linux/macOS. ' +
+        'SSH: wrap the remote argument in SINGLE quotes; bash-style \\" escapes mangle arguments. ' +
+        'Multi-line Python — Linux/macOS:\n' +
+        "python3 - << 'EOF'\n# code\nEOF\n" +
+        "Windows:\n@'\n# code\n'@ | python -",
       parameters: {
         command: { type: 'string', required: true, description: 'The exact command line string to execute.' },
         cwd: { type: 'string', description: 'Working directory for the command. Defaults to the session workspace; a relative path is resolved against it.' },
