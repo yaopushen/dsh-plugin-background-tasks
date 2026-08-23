@@ -66,6 +66,16 @@
 
 ## 安装与注册方式
 
+### 方式一：从 GitHub 安装（发布后的标准姿势）
+
+```powershell
+dsh plugin --profile web add github:<owner>/dsh-plugin-background-tasks
+```
+
+编译产物 `lib/` 随库提交，GitHub 直装免构建。
+
+### 方式二：本地开发挂载（link）
+
 本插件遵循标准 DSH Bundle 规范，自带 `dsh.bundle` 补丁声明与随包预设：
 
 ```powershell
