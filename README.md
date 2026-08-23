@@ -72,27 +72,40 @@ kill 将任务置为 killed 并整组终止进程树；该状态不会被后续 
 
 ---
 
-## 安装
+## 安装（标准 bundle 注册）
 
-### 方式 A：Cordis Patch 覆盖层（推荐本地调试）
+本包自带标准 bundle 声明，无需手改 profile 的 patch 文件：
 
-**前置条件**：本插件对 `@deepseek-ai/dsh-tools` 与 `@deepseek-ai/dsh-llm` 存在运行时导入；按绝对路径挂载时 Node 无法解析裸说明符，需先建立指向 harness 工作区包的目录联接（幂等脚本）：
+- package.json 声明补丁层：`"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }`
+- `cordis.patch.yml`：`- insert: [{id: dsh-plugin-background-tasks, name: dsh-plugin-background-tasks}]`
+
+加载器（`packages/boot/app-boot/src/profile.ts` 的 loadProfile）对列入 `dsh.profile.bundles` 的每个包强制校验该声明——缺失时整个宿主启动失败（fail loud）。
+
+### 注册到 web profile
+
+```powershell
+# 安装依赖到 profile 目录（内部转发 pnpm；link: 指向本地源码目录，改动即生效）
+dsh plugin --profile web add 'dsh-plugin-background-tasks@link:D:/DEEPSEEK/dsh-plugin-background-tasks' -w
+# 若已手动写入 dependencies，只需补装：
+dsh plugin --profile web install
+```
+
+add 会把包名追加进 profile 的 `dsh.profile.bundles` 列表；remove 移除。其余参数原样转发给包管理器（`-w` 即 pnpm 的标志）。
+
+### 验证是否生效
+
+1. **配置层（权威）**：`dsh --profile web --dump-config | Select-String background` —— 组合输出中出现 `- id: dsh-plugin-background-tasks` 条目且无报错，即注册链路正确（与 boot 同一条组合路径）。首次接入时若缺 `dsh.bundle` 声明，此处/启动会直接抛错。
+2. **加载层**：重启 `dsh web` 后宿主日志出现 `[background-tasks] plugin loaded`（命名 logger 输出）。
+3. **工具层（会话内）**：对模型说「用 manage_background_task 列出后台任务」——返回 `No background tasks found.` 即证明工具已注册并可执行。
+4. **功能层（端到端）**：让模型执行长命令（如 `run_background_command {"command":"Start-Sleep -Seconds 6","wait_ms":1000}`）→ 观察返回 `[Background Task Started]` 与 TaskId → 数秒后自动收到完成唤醒通知（含输出尾部）。
+
+### 运行时依赖说明（树外 link 场景）
+
+本插件对 `@deepseek-ai/dsh-tools`、`@deepseek-ai/dsh-llm` 存在运行时导入。经 profile 正常安装后由 profile 目录的 node_modules 解析；若绕过安装、直接以绝对路径挂载 lib/index.js，则需先建立指向 harness 工作区包的目录联接：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/link-deps.ps1
 ```
-
-profile patch 文件（如 ~/.dsh/profiles/web/cordis.patch.yml）：
-
-```yaml
-- insert:
-    - id: plugin-background-tasks
-      name: 'd:/DEEPSEEK/dsh-plugin-background-tasks/lib/index.js'
-```
-
-### 方式 B：作为 npm 包引入
-
-在 profile 的 package.json 中声明 `"dsh-plugin-background-tasks": "file:D:/DEEPSEEK/dsh-plugin-background-tasks"`，并在 cordis.yml 中加 `- name: dsh-plugin-background-tasks`（bare name 需能从宿主 node_modules 解析）。
 
 ---
 
