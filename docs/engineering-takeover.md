@@ -1,10 +1,10 @@
-# 工程化接管笔记：让 run_background_command 成为无感默认
+# 工程化接管笔记：让 run_command 成为无感默认
 
 > 状态：2026-08-23 · 基于 commit `e086d22`（描述路由）与 `943f638`（CLIXML 静默）· 本文取代零散讨论，供后续会话确认细节。
 
 ## 1. 目标与非目标
 
-- **目标**：模型在任何新会话中发起长 shell 任务（数据清洗、构建、下载等）时，无需任何提示词引导即落入 `run_background_command` 的超时托管 + 自动唤醒管线——复刻 Antigravity `run_command` 的体验。
+- **目标**：模型在任何新会话中发起长 shell 任务（数据清洗、构建、下载等）时，无需任何提示词引导即落入 `run_command` 的超时托管 + 自动唤醒管线——复刻 Antigravity `run_command` 的体验。
 - **非目标**：不改动 deepseek-harness 本体；不在用户提示词/系统指令里添加路由说教（除非迫不得已）。
 
 ## 2. 已验证事实（证据链）
@@ -22,7 +22,7 @@
 
 ## 3. 根因分析
 
-Antigravity 无路由问题是因为结构上只有一个门。DSH 中内置 shell 虽然在 host 配置面默认禁用（F2），但被某组件在会话面重新解禁（F4），于是 native 会话出现双入口竞争：`pwsh`（文档明确写了 long-running 用 `run_in_background: true`）对 `run_background_command`。关键词匹配上前者占优——这正是新会话给出 pwsh 建议的机理。
+Antigravity 无路由问题是因为结构上只有一个门。DSH 中内置 shell 虽然在 host 配置面默认禁用（F2），但被某组件在会话面重新解禁（F4），于是 native 会话出现双入口竞争：`pwsh`（文档明确写了 long-running 用 `run_in_background: true`）对 `run_command`。关键词匹配上前者占优——这正是新会话给出 pwsh 建议的机理。
 
 ## 4. 方案矩阵（工程化优先排序）
 
@@ -34,7 +34,7 @@ Antigravity 无路由问题是因为结构上只有一个门。DSH 中内置 she
 
 回滚：删除该目录即消失。恢复原生 shell：把文件内注释中的两行贴回。
 
-验证：新会话选择「后台任务模式」→ 问「逐字列出可用工具」→ 应无 pwsh/bash 且含 run_background_command → 直接丢长任务观察托管+唤醒。
+验证：新会话选择「后台任务模式」→ 问「逐字列出可用工具」→ 应无 pwsh/bash 且含 run_command → 直接丢长任务观察托管+唤醒。
 
 ### S1 结构接管·插件自动限制（可选增强，暂缓）
 

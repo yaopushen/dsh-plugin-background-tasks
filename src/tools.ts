@@ -20,11 +20,11 @@ export function registerBackgroundTools(
 ): () => void {
   const disposers: Array<() => void> = []
 
-  // 1. run_background_command
+  // 1. run_command
   disposers.push(
     ctx.tools.register(
       defineTool({
-        name: 'run_background_command',
+        name: 'run_command',
         description:
           'Default runner for ANY shell command that may take longer than a few seconds — builds, installs, downloads, tests, training, batch scripts. ' +
           `Commands finishing within wait_ms (default ${config.waitMsBeforeAsync}ms) return the exit code and output synchronously; ` +
@@ -97,7 +97,7 @@ export function registerBackgroundTools(
       defineTool({
         name: 'manage_background_task',
         description:
-          'Manage background tasks started by run_background_command: list them, inspect status or live logs, or terminate a running task tree. ' +
+          'Manage background tasks started by run_command: list them, inspect status or live logs, or terminate a running task tree. ' +
           'Safe to call anytime — checking progress never blocks the running task.',
         parameters: {
           action: {

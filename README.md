@@ -46,7 +46,7 @@ cordis.yml 示例：
 
 ## 提供的工具
 
-### 1. run_background_command
+### 1. run_command
 
 执行 Shell 命令（Windows 经 `-EncodedCommand` 调用 PowerShell，避免引号转义歧义；Linux/macOS 使用 `/bin/bash -c`）。
 
@@ -97,7 +97,7 @@ add 会把包名追加进 profile 的 `dsh.profile.bundles` 列表；remove 移�
 1. **配置层（权威）**：`dsh --profile web --dump-config | Select-String background` —— 组合输出中出现 `- id: dsh-plugin-background-tasks` 条目且无报错，即注册链路正确（与 boot 同一条组合路径）。首次接入时若缺 `dsh.bundle` 声明，此处/启动会直接抛错。
 2. **加载层**：重启 `dsh web` 后宿主日志出现 `[background-tasks] plugin loaded`（命名 logger 输出）。
 3. **工具层（会话内）**：对模型说「用 manage_background_task 列出后台任务」——返回 `No background tasks found.` 即证明工具已注册并可执行。
-4. **功能层（端到端）**：让模型执行长命令（如 `run_background_command {"command":"Start-Sleep -Seconds 6","wait_ms":1000}`）→ 观察返回 `[Background Task Started]` 与 TaskId → 数秒后自动收到完成唤醒通知（含输出尾部）。
+4. **功能层（端到端）**：让模型执行长命令（如 `run_command {"command":"Start-Sleep -Seconds 6","wait_ms":1000}`）→ 观察返回 `[Background Task Started]` 与 TaskId → 数秒后自动收到完成唤醒通知（含输出尾部）。
 
 ### 运行时依赖说明（树外 link 场景）
 
@@ -116,7 +116,7 @@ src/
 ├── index.ts    # 函数插件：name/inject/apply（无 default 导出）
 ├── config.ts   # Config 校验与默认值（fail loud）
 ├── manager.ts  # TaskManager：统一 settle 路径 / 树杀 / 保留淘汰 / 日志尾读
-├── tools.ts    # defineTool 注册（run_background_command / manage_background_task）
+├── tools.ts    # defineTool 注册（run_command / manage_background_task）
 ├── wakeup.ts   # agent.followup 通知投递
 ├── format.ts   # 防围栏击穿的 code fence 辅助
 └── types.ts    # 仅类型
@@ -137,7 +137,7 @@ pnpm test           # node tests/test-manager.mjs（使用临时目录，不污�
 
 ## Model Experience
 
-### run_background_command tool schema
+### run_command tool schema
 
 #### What the model sees
 
@@ -163,7 +163,7 @@ Fixed while the plugin is mounted: one tool schema entry per prompt assembly.
 
 #### KV Cache effect
 
-Prefix-stable under the same conditions as run_background_command.
+Prefix-stable under the same conditions as run_command.
 
 ### Background-task completion notification
 

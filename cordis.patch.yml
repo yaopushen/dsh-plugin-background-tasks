@@ -1,5 +1,5 @@
 # dsh-plugin-background-tasks bundle patch（dsh.bundle manifest 要求的加载配置）
-# 单包单插件：挂载后注册 run_background_command / manage_background_task 两个工具。
+# 单包单插件：挂载后注册 run_command / manage_background_task 两个工具。
 - insert:
     - id: dsh-plugin-background-tasks
       name: dsh-plugin-background-tasks
