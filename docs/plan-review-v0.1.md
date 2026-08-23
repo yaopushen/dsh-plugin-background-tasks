@@ -1,5 +1,14 @@
 \# `dsh-plugin-background-tasks` 校验与代码审查报告
 
+> **状态：历史存档（针对 v0.1 自管架构的审查）。** 所列缺陷已随 v0.2.0 seam-aligned 重写全部关闭或失效：
+> - P0-1（export default 混用）、P0-2/P0-4/P1-5（settle 路径竞态族）、P1-8（无界增长）——随自管 TaskManager 整体删除而消失；
+> - P0-3（POSIX 树杀失效）——进程组终止移交 `ctx.subprocess` seam 的 `ShellProcess.kill()`；
+> - P1-6（绕过 jobs/沙箱/审批 seam）——由 Tier B 重写正面解决，见 `docs/sandbox-integration.md` §6；
+> - P1-7（硬编码可调参数）——收敛为单一 fail-loud `Config` 字段；
+> - P2 各项——wakeup 已删除、分块解码归 executor、codeFence 保留，随之失效。
+>
+> 包规范偏差表中大部分已修复（exports/files 白名单/devDeps 镜像/README Model Experience 与 Known Limitations 章节）；遗留偏差（树外非 `@deepseek-ai` 包名、tsconfig 绝对路径依赖宿主构建产物）为已知接受项。**本文仅作存档，现状以 `README.md` 为准。**
+
 
 
 \*\*审查基准\*\*:https://deepseek-harness.github.io/deepseek-harness/reference/(架构页、cordis-primer、adding-a-package 手册)+ 本地代码库 `deepseek-harness`(vendor cordis、core/tools、core/agent、llm/llm、boot/app-boot)逐 API 实源比对。
