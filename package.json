@@ -1,0 +1,40 @@
+{
+  "name": "dsh-plugin-background-tasks",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Background task management with reactive agent wakeup for DeepSeek Harness",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node tests/test-manager.mjs"
+  },
+  "keywords": [
+    "cordis",
+    "deepseek-harness",
+    "dsh-plugin",
+    "background-tasks"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-agent": "*",
+    "@deepseek-ai/dsh-llm": "*",
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-agent": "*",
+    "@deepseek-ai/dsh-llm": "*",
+    "@deepseek-ai/dsh-tools": "*"
+  }
+}
