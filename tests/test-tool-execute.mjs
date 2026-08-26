@@ -235,6 +235,31 @@ await test('caller abort inside the window promotes early instead of waiting out
   assert.ok(out.includes('[Command moved to background]'), out)
 })
 
+await test('promotion message carries the anti-poll guidance', async () => {
+  const shell = makeShell(() => makeProc())
+  const { ctx, registered } = makeCtx({ shell })
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, NO_POLICY_SEAM)
+  const tool = registered.at(-1)
+  const { exec } = makeExec()
+  const out = await tool.execute({ command: 'long-build' }, exec)
+  assert.ok(out.includes('Do not poll job_output meanwhile'), out)
+  assert.ok(out.includes('end your turn'), out)
+})
+
+await test('promoted job reads carry the pending hint until settlement', async () => {
+  const shell = makeShell(() => makeProc({ output: 'step 1\n' }))
+  const { ctx, registered } = makeCtx({ shell })
+  registerBackgroundTools(ctx, { waitMsBeforeAsync: 25 }, NO_POLICY_SEAM)
+  const tool = registered.at(-1)
+  const { exec } = makeExec()
+  await tool.execute({ command: 'long-build' }, exec)
+  const hooks = ctx.get('jobs').started[0].hooks
+  assert.ok(hooks.readOutput().includes('Job still in progress'))
+  shell.started[0].settle({ status: 'completed', exitCode: 0 })
+  await hooks.done
+  assert.ok(!hooks.readOutput().includes('Job still in progress'))
+})
+
 // --- request stamping --------------------------------------------------------
 
 await test('policy workspace root wins as default workdir and rides the spec', async () => {

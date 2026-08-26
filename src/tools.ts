@@ -74,6 +74,7 @@ function renderBackground(outcome: Extract<RunCommandOutcome, { mode: 'backgroun
     '[Command moved to background]',
     `JobId: ${outcome.jobId}`,
     'The result arrives via completion notification; manage with job_output / job_kill.',
+    'Do not poll job_output meanwhile — continue independent work or end your turn, and the completion notification will wake you.',
   ].join('\n')
 }
 
@@ -178,6 +179,10 @@ export function registerBackgroundTools(
          * a rejected registration therefore kills the partial start.
          */
         const registerJob = (running: ShellProcess): string => {
+          // Flips when `done` settles the outcome: reads before that moment are
+          // still-running and carry the pending-read nudge, reads after it (the
+          // terminal collection) stay hint-free.
+          let settled = false
           try {
             return jobs.start({
               kind: 'command',
@@ -185,8 +190,12 @@ export function registerBackgroundTools(
               ...(exec.agent !== undefined ? { owner: exec.agent } : {}),
               run: () => ({
                 cancel: () => void running.kill(),
-                done: running.done.then(() => processOutcome(running)),
-                readOutput: () => renderProcessRead(running.readOutput(), running.sandbox, seam.escalationModes.length > 0),
+                done: running.done.then(() => {
+                  settled = true
+                  return processOutcome(running)
+                }),
+                readOutput: () =>
+                  renderProcessRead(running.readOutput(), running.sandbox, seam.escalationModes.length > 0, !settled),
               }),
             })
           } catch (err) {

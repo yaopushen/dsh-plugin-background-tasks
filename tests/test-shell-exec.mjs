@@ -141,6 +141,28 @@ await test('non-denied sandbox facts add nothing', () => {
   assert.equal(text, 'ok')
 })
 
+await test('still-running read gains the pending hint', () => {
+  const text = renderProcessRead({ delta: 'building…\n', lossy: false }, undefined, false, true)
+  assert.ok(text.startsWith('building…\n'))
+  assert.ok(text.includes('Job still in progress'), `missing hint, got: ${text}`)
+  assert.ok(text.includes('end your turn'))
+})
+
+await test('settled read stays hint-free', () => {
+  const text = renderProcessRead({ delta: 'done', lossy: false }, undefined, false, false)
+  assert.equal(text, 'done')
+})
+
+await test('pending hint lands below denial markers', () => {
+  const text = renderProcessRead(
+    { delta: '', lossy: false },
+    { mode: 'workspace-write', denied: true },
+    true,
+    true,
+  )
+  assert.ok(text.indexOf('escalation available') < text.indexOf('Job still in progress'))
+})
+
 // --- raceCompletion --------------------------------------------------------
 
 await test('fast process settles as completed and clears the timer', async () => {

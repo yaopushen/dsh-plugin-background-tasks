@@ -30,19 +30,32 @@ export declare function resolveWorkdir(modelCwd: string | undefined, headerCwd: 
  */
 export declare function processOutcome(proc: Pick<ShellProcess, 'status' | 'exitCode' | 'signal'>): JobOutcome;
 /**
+ * One-line nudge appended to a promoted job's still-running reads, below the
+ * output delta and above the host's closing `[status: ...]` line. A bare
+ * running status gives a model nothing to act on, so owners kept re-reading a
+ * settling command — often with back-to-back blocking waits — until each wait
+ * cap returned; the completion notification already reaches them without any
+ * polling, so ending the turn loses nothing.
+ */
+export declare const PENDING_READ_HINT = "\nJob still in progress \u2014 re-reading it will not make it finish sooner. Continue independent work or end your turn; the completion notification will wake you.";
+/**
  * Render one incremental process read into job-output text. The delta already
  * carries stderr in its marked section; lossy reads gain an explicit
- * truncation notice pointing at the executor's spill files, and a policy
- * denial gains the shared harness denial marker — plus, when this composition
+ * truncation notice pointing at the executor's spill files, a policy denial
+ * gains the shared harness denial marker — plus, when this composition
  * advertises the escalation surface, the shared same-turn escalation hint at
- * the decision point, verbatim with the native shell tools.
+ * the decision point, verbatim with the native shell tools — and a
+ * still-running read ends with the pending-read nudge so the model stops
+ * polling and relies on the completion notification instead.
  * @param read - the consuming read returned by {@link ShellProcess.readOutput}.
  * @param sandbox - the process's sandbox facts, stamped by confining executors.
  * @param escalationAvailable - whether this composition advertises
  *   `sandbox_permissions` (a confining executor is mounted).
+ * @param stillRunning - whether the underlying process has not settled yet;
+ *   settled reads (and the synchronous completion path) stay hint-free.
  * @returns the text handed to `ctx.jobs` as this read's output delta.
  */
-export declare function renderProcessRead(read: ShellProcessRead, sandbox: ShellSandboxInfo | undefined, escalationAvailable?: boolean): string;
+export declare function renderProcessRead(read: ShellProcessRead, sandbox: ShellSandboxInfo | undefined, escalationAvailable?: boolean, stillRunning?: boolean): string;
 /**
  * Race a live process against the promotion window. The process keeps running
  * on every arm — neither the timeout nor a caller abort kills anything; both
